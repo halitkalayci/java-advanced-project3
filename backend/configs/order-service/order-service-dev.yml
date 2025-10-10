@@ -1,4 +1,6 @@
 spring:
+  kafka:
+    bootstrap-servers: localhost:29092
   config:
     activate:
       on-profile: dev
