@@ -28,7 +28,7 @@ public class TokenRelayConfig {
                         // Allow actuator endpoints without authentication
                         .pathMatchers("/actuator/**").permitAll()
                         // All other requests require authentication
-                        .anyExchange().authenticated()
+                        .anyExchange().permitAll()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         // Enable JWT-based authentication
