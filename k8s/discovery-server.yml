@@ -1,0 +1,190 @@
+---
+# ============================================
+# ConfigMap for Discovery Server Environment Variables
+# ============================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: discovery-server-config
+  namespace: default
+  labels:
+    app: discovery-server
+    component: infrastructure
+data:
+  SPRING_PROFILES_ACTIVE: "dev"
+  SO_CONFIG_URI: "http://config-server-internal:8888"
+  JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+
+---
+# ============================================
+# Deployment for Discovery Server
+# ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery-server
+  namespace: default
+  labels:
+    app: discovery-server
+    component: infrastructure
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: discovery-server
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: discovery-server
+        component: infrastructure
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8761"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      containers:
+      - name: discovery-server
+        image: halitkalayci/smartorder-discovery-server:latest
+        imagePullPolicy: Always
+        
+        ports:
+        - name: http
+          containerPort: 8761
+          protocol: TCP
+        
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          valueFrom:
+            configMapKeyRef:
+              name: discovery-server-config
+              key: SPRING_PROFILES_ACTIVE
+        - name: SO_CONFIG_URI
+          valueFrom:
+            configMapKeyRef:
+              name: discovery-server-config
+              key: SO_CONFIG_URI
+        - name: JAVA_OPTS
+          valueFrom:
+            configMapKeyRef:
+              name: discovery-server-config
+              key: JAVA_OPTS
+        
+        resources:
+          requests:
+            memory: "384Mi"
+            cpu: "250m"
+          limits:
+            memory: "768Mi"
+            cpu: "500m"
+        
+        # Liveness Probe - Container'ın yaşayıp yaşamadığını kontrol eder
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8761
+            scheme: HTTP
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # Readiness Probe - Container'ın trafik almaya hazır olup olmadığını kontrol eder
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8761
+            scheme: HTTP
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # Startup Probe - İlk başlangıç için özel probe
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8761
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 15
+        
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: logs
+          mountPath: /app/logs
+      
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
+      
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      
+      # Security Context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+---
+# ============================================
+# Service for Discovery Server (NodePort)
+# ============================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: discovery-server
+  namespace: default
+  labels:
+    app: discovery-server
+    component: infrastructure
+spec:
+  type: NodePort
+  selector:
+    app: discovery-server
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8761
+    targetPort: 8761
+    nodePort: 30761
+  sessionAffinity: None
+
+---
+# ============================================
+# Service for Internal ClusterIP (Optional)
+# ============================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: discovery-server-internal
+  namespace: default
+  labels:
+    app: discovery-server
+    component: infrastructure
+spec:
+  type: ClusterIP
+  selector:
+    app: discovery-server
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8761
+    targetPort: 8761
+  sessionAffinity: None
+

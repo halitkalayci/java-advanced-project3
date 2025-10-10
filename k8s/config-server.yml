@@ -1,0 +1,202 @@
+---
+# ============================================
+# ConfigMap for Config Server Environment Variables
+# ============================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-server-config
+  namespace: default
+  labels:
+    app: config-server
+    component: infrastructure
+data:
+  SPRING_PROFILES_ACTIVE: "git"
+  SO_CONFIG_GIT_URI: "https://github.com/halitkalayci/java-advanced-project3.git"
+  SO_CONFIG_GIT_BRANCH: "main"
+  SO_EUREKA_URI: "http://discovery-server-internal:8761/eureka"
+  JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+
+---
+# ============================================
+# Deployment for Config Server
+# ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-server
+  namespace: default
+  labels:
+    app: config-server
+    component: infrastructure
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: config-server
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: config-server
+        component: infrastructure
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8888"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      containers:
+      - name: config-server
+        image: halitkalayci/smartorder-config-server:latest
+        imagePullPolicy: Always
+        
+        ports:
+        - name: http
+          containerPort: 8888
+          protocol: TCP
+        
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          valueFrom:
+            configMapKeyRef:
+              name: config-server-config
+              key: SPRING_PROFILES_ACTIVE
+        - name: SO_CONFIG_GIT_URI
+          valueFrom:
+            configMapKeyRef:
+              name: config-server-config
+              key: SO_CONFIG_GIT_URI
+        - name: SO_CONFIG_GIT_BRANCH
+          valueFrom:
+            configMapKeyRef:
+              name: config-server-config
+              key: SO_CONFIG_GIT_BRANCH
+        - name: SO_EUREKA_URI
+          valueFrom:
+            configMapKeyRef:
+              name: config-server-config
+              key: SO_EUREKA_URI
+        - name: JAVA_OPTS
+          valueFrom:
+            configMapKeyRef:
+              name: config-server-config
+              key: JAVA_OPTS
+        
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        
+        # Liveness Probe - Container'ın yaşayıp yaşamadığını kontrol eder
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8888
+            scheme: HTTP
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # Readiness Probe - Container'ın trafik almaya hazır olup olmadığını kontrol eder
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8888
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # Startup Probe - İlk başlangıç için özel probe
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8888
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 12
+        
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: logs
+          mountPath: /app/logs
+      
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
+      
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      
+      # Security Context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+---
+# ============================================
+# Service for Config Server (NodePort)
+# ============================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: config-server
+  namespace: default
+  labels:
+    app: config-server
+    component: infrastructure
+spec:
+  type: NodePort
+  selector:
+    app: config-server
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8888
+    targetPort: 8888
+    nodePort: 30888
+  sessionAffinity: None
+
+---
+# ============================================
+# Service for Internal ClusterIP (Optional)
+# ============================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: config-server-internal
+  namespace: default
+  labels:
+    app: config-server
+    component: infrastructure
+spec:
+  type: ClusterIP
+  selector:
+    app: config-server
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8888
+    targetPort: 8888
+  sessionAffinity: None
+

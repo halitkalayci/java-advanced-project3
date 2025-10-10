@@ -1,0 +1,84 @@
+# ============================================
+# Multi-Stage Dockerfile for Config Server
+# ============================================
+
+# ============================================
+# Stage 1: Build Stage
+# ============================================
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+
+# Metadata
+LABEL stage=builder
+LABEL description="Build stage for SmartOrder Config Server"
+
+# Set working directory
+WORKDIR /build
+
+# Copy parent POM first (for better layer caching)
+COPY pom.xml ./pom.xml
+
+# Copy config-server module
+COPY config-server/pom.xml ./config-server/pom.xml
+COPY config-server/src ./config-server/src
+
+
+# Build the application (skip tests for faster builds)
+WORKDIR /build/config-server
+RUN mvn clean package -DskipTests -Dmaven.test.skip=true
+
+# Extract layered JAR (Spring Boot 2.3+)
+WORKDIR /build/config-server/target
+RUN java -Djarmode=layertools -jar config-server-*.jar extract
+
+# ============================================
+# Stage 2: Runtime Stage
+# ============================================
+FROM eclipse-temurin:21-jre-alpine AS runtime
+
+# Metadata
+LABEL maintainer="smartorder-team"
+LABEL service="config-server"
+LABEL version="0.0.1-SNAPSHOT"
+LABEL description="Spring Cloud Config Server for SmartOrder"
+
+# Install curl for healthchecks
+RUN apk add --no-cache curl
+
+# Create non-root user for security
+RUN addgroup -S spring && adduser -S spring -G spring
+
+# Set working directory
+WORKDIR /app
+
+# Copy extracted layers from builder stage (in order of least to most frequently changing)
+COPY --from=builder --chown=spring:spring /build/config-server/target/dependencies/ ./
+COPY --from=builder --chown=spring:spring /build/config-server/target/spring-boot-loader/ ./
+COPY --from=builder --chown=spring:spring /build/config-server/target/snapshot-dependencies/ ./
+COPY --from=builder --chown=spring:spring /build/config-server/target/application/ ./
+
+# Switch to non-root user
+USER spring:spring
+
+# Expose port
+EXPOSE 8888
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:8888/actuator/health || exit 1
+
+# JVM options for containerized environment
+ENV JAVA_OPTS="-XX:+UseContainerSupport \
+               -XX:MaxRAMPercentage=75.0 \
+               -XX:InitialRAMPercentage=50.0 \
+               -XX:+ExitOnOutOfMemoryError \
+               -Djava.security.egd=file:/dev/./urandom"
+
+# Spring profile (can be overridden)
+ENV SPRING_PROFILES_ACTIVE=dev
+
+# Eureka URI (can be overridden)
+ENV SO_EUREKA_URI=http://discovery-server:8761/eureka
+
+# Run the application
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS org.springframework.boot.loader.launch.JarLauncher"]
+
