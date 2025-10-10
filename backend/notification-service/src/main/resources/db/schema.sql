@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY,
+    order_id UUID NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    message VARCHAR(512),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
