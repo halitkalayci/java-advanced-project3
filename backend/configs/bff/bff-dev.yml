@@ -37,5 +37,8 @@ management:
 
 logging:
   level:
-    org.springframework.security: INFO
-    org.springframework.web.reactive.function.client: INFO
+    org.springframework.security: DEBUG
+    org.springframework.web.reactive.function.client: DEBUG
+    org.springframework.cloud.client.loadbalancer: DEBUG
+    com.smartorder.bff: DEBUG
+    reactor.netty: DEBUG

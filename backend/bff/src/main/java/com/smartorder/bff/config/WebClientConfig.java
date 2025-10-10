@@ -32,7 +32,7 @@ public class WebClientConfig {
             ServerOAuth2AuthorizedClientRepository authorizedClients) {
 
         var oauth = new ServerOAuth2AuthorizedClientExchangeFilterFunction(clients, authorizedClients);
-        oauth.setDefaultOAuth2AuthorizedClient(true); // attach current user's access token
+        oauth.setDefaultClientRegistrationId("keycloak"); // Use 'keycloak' registration from config
 
         return builder
                 .baseUrl("lb://gateway")
