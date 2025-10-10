@@ -17,7 +17,7 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:db/order-service-schema.sql
+      schema-locations: classpath:db/schema.sql
   cloud:
     function:
       definition: paymentSucceeded;paymentFailed
