@@ -1,4 +1,4 @@
-package com.smartorder.catalog_service;
+package com.smartorder.catalogservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
