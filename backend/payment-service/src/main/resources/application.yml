@@ -1,0 +1,7 @@
+spring:
+  config:
+    import: "configserver:${SO_CONFIG_URI:http://localhost:8888}"
+  application:
+    name: payment-service
+  profiles:
+    active: dev

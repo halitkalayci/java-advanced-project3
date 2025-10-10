@@ -85,6 +85,22 @@ public class OrderCommandService {
         }
     }
 
+    @Transactional
+    public void handlePaymentSucceeded(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        order.markCompleted();
+        orderRepository.save(order);
+    }
+
+    @Transactional
+    public void handlePaymentFailed(UUID orderId, String reason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        order.markCancelled();
+        orderRepository.save(order);
+    }
+
     private void validateCurrencyConsistency(List<OrderLine> lines) {
         String currency = lines.get(0).currency();
         boolean mixed = lines.stream().anyMatch(line -> !currency.equals(line.currency()));

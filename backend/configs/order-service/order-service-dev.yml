@@ -1,9 +1,8 @@
 spring:
   kafka:
-    bootstrap-servers: localhost:29092
+    bootstrap-servers: ${SO_KAFKA_BROKERS:localhost:29092}
   config:
     activate:
-      on-profile: dev
   datasource:
     url: "jdbc:h2:file:${SO_DB_DIR:./data}/order;AUTO_SERVER=TRUE;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;"
     username: sa
@@ -19,19 +18,40 @@ spring:
       mode: always
       schema-locations: classpath:db/schema.sql
   cloud:
+    function:
+      definition: paymentSucceeded;paymentFailed
     stream:
       kafka:
         binder:
           brokers: ${SO_KAFKA_BROKERS:localhost:9092}
+        bindings:
+          paymentSucceeded-in-0:
+            consumer:
+              enableDlq: true
+          paymentFailed-in-0:
+            consumer:
+              enableDlq: true
       bindings:
         orderCreated-out-0:
           destination: order.created
           content-type: application/json
+        paymentSucceeded-in-0:
+          destination: payment.succeeded
+          group: order-svc
+          content-type: application/json
+          consumer:
+            maxAttempts: 3
+        paymentFailed-in-0:
+          destination: payment.failed
+          group: order-svc
+          content-type: application/json
+          consumer:
+            maxAttempts: 3
   security:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8088/realms/smartorder}
+          issuer-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8585/realms/smartorder}
 
 server:
   port: 8081

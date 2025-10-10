@@ -23,10 +23,24 @@ public class JdbcOrderRepositoryAdapter implements OrderRepository {
 
     @Override
     public Order save(Order order) {
-        OrderEntity entity = toEntity(order);
-        orderRepository.save(entity);
-        lineRepository.deleteAll(lineRepository.findByOrderId(order.getId()));
-        lineRepository.saveAll(entity.getLines());
+        boolean existing = orderRepository.existsById(order.getId());
+        
+        if (existing) {
+            // Update sadece order'ı kaydet, lines'ları boş bırak
+            OrderEntity entity = toEntityWithoutLines(order);
+            entity.markAsNotNew();
+            orderRepository.save(entity);
+            
+            // Lines'ları manuel yönet
+            lineRepository.deleteAll(lineRepository.findByOrderId(order.getId()));
+            List<OrderLineEntity> newLines = toLineEntities(order);
+            lineRepository.saveAll(newLines);
+        } else {
+            // Yeni order - aggregate olarak kaydet
+            OrderEntity entity = toEntityWithLines(order);
+            orderRepository.save(entity);
+        }
+        
         return order;
     }
 
@@ -37,8 +51,29 @@ public class JdbcOrderRepositoryAdapter implements OrderRepository {
                 .map(entity -> toDomain(entity, lineRepository.findByOrderId(id)));
     }
 
-    private OrderEntity toEntity(Order order) {
-        List<OrderLineEntity> items = order.getLines().stream()
+    private OrderEntity toEntityWithoutLines(Order order) {
+        return new OrderEntity(
+                order.getId(),
+                order.getStatus().name(),
+                order.getTotalCents(),
+                order.getCurrency(),
+                order.getCreatedAt(),
+                List.of());
+    }
+
+    private OrderEntity toEntityWithLines(Order order) {
+        List<OrderLineEntity> items = toLineEntities(order);
+        return new OrderEntity(
+                order.getId(),
+                order.getStatus().name(),
+                order.getTotalCents(),
+                order.getCurrency(),
+                order.getCreatedAt(),
+                items);
+    }
+
+    private List<OrderLineEntity> toLineEntities(Order order) {
+        return order.getLines().stream()
                 .map(item -> new OrderLineEntity(
                         UUID.randomUUID(),
                         order.getId(),
@@ -49,14 +84,6 @@ public class JdbcOrderRepositoryAdapter implements OrderRepository {
                         item.quantity(),
                         item.lineTotalCents()))
                 .collect(Collectors.toList());
-
-        return new OrderEntity(
-                order.getId(),
-                order.getStatus().name(),
-                order.getTotalCents(),
-                order.getCurrency(),
-                order.getCreatedAt(),
-                items);
     }
 
     private Order toDomain(OrderEntity entity, List<OrderLineEntity> items) {
