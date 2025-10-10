@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: catalog-service
+  config:
+    import: "configserver:${SO_CONFIG_URI:http://localhost:8888}"
+  profiles:
+    active: dev

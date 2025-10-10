@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS products (
+    id UUID PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    unit_cents BIGINT NOT NULL,
+    currency VARCHAR(3) NOT NULL,
+    active BOOLEAN NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
