@@ -23,7 +23,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8088/realms/smartorder}
+          # Must match BFF realm for token validation
+          issuer-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8585/realms/smartorder-bff}
 
 server:
   port: 8084

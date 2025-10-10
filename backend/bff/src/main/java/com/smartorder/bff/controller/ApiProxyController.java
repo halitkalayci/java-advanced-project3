@@ -32,11 +32,12 @@ public class ApiProxyController {
         var req = exchange.getRequest();
         HttpMethod method = req.getMethod();
 
-        // Original path: /api/xxx -> forward to /api/xxx at GATEWAY
-        String pathAfterApi = req.getPath().pathWithinApplication().value().substring("/api".length());
-        String forwardPath = (pathAfterApi.isEmpty() ? "/" : pathAfterApi);
-
-        var uriBuilder = URI.create(forwardPath);
+        // Original path: /api/xxx -> forward to /api/xxx at GATEWAY (preserve /api prefix and query params)
+        String fullPath = req.getPath().pathWithinApplication().value();
+        String queryString = req.getURI().getRawQuery();
+        String pathWithQuery = queryString != null ? fullPath + "?" + queryString : fullPath;
+        
+        var uriBuilder = URI.create(pathWithQuery);
 
         var headers = req.getHeaders();
 
@@ -47,9 +48,10 @@ public class ApiProxyController {
                 .accept(MediaType.ALL);
 
         if (method == HttpMethod.GET || method == HttpMethod.DELETE || method == HttpMethod.OPTIONS) {
-            return spec
+            var x = spec
                     .retrieve()
                     .toEntity(byte[].class);
+            return x;
         } else {
             return body
                     .defaultIfEmpty(new byte[0])

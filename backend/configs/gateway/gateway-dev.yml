@@ -32,8 +32,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # Keycloak issuer URI for JWT validation
-          issuer-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8585/realms/smartorder}
+          # Keycloak issuer URI for JWT validation (must match BFF realm)
+          issuer-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8585/realms/smartorder-bff}
 
 # Eureka Client Configuration
 eureka:
