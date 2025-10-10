@@ -1,0 +1,67 @@
+spring:
+  kafka:
+    bootstrap-servers: ${SO_KAFKA_BROKERS:localhost:29092}
+  config:
+    activate:
+  datasource:
+    url: "jdbc:h2:file:${SO_DB_DIR:./data}/order;AUTO_SERVER=TRUE;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;"
+    username: sa
+    password: ""
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+  cloud:
+    function:
+      definition: paymentSucceeded;paymentFailed
+    stream:
+      kafka:
+        binder:
+          brokers: ${SO_KAFKA_BROKERS:localhost:9092}
+        bindings:
+          paymentSucceeded-in-0:
+            consumer:
+              enableDlq: true
+          paymentFailed-in-0:
+            consumer:
+              enableDlq: true
+      bindings:
+        orderCreated-out-0:
+          destination: order.created
+          content-type: application/json
+        paymentSucceeded-in-0:
+          destination: payment.succeeded
+          group: order-svc
+          content-type: application/json
+          consumer:
+            maxAttempts: 3
+        paymentFailed-in-0:
+          destination: payment.failed
+          group: order-svc
+          content-type: application/json
+          consumer:
+            maxAttempts: 3
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8585/realms/smartorder}
+
+server:
+  port: 8081
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${SO_EUREKA_URI:http://localhost:8761/eureka}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+

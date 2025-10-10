@@ -1,6 +1,8 @@
 spring:
   application:
     name: config-server
+  profiles:
+    active: git
   cloud:
     config:
       server:
@@ -10,6 +12,16 @@ spring:
           search-paths:
             - backend/configs
             - backend/configs/{application}
+          clone-on-start: true
+          force-pull: true
+        native:
+          search-locations: []
 
 server:
   port: 8888
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,env
