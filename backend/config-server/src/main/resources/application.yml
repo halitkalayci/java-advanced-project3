@@ -1,6 +1,15 @@
 spring:
   application:
     name: config-server
+  cloud:
+    config:
+      server:
+        git:
+          uri: ${SO_CONFIG_GIT_URI:https://github.com/halitkalayci/java-advanced-project3.git}
+          default-label: ${SO_CONFIG_GIT_BRANCH:main}
+          search-paths:
+            - backend/configs
+            - backend/configs/{application}
 
 server:
   port: 8888
