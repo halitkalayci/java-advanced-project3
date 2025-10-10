@@ -1096,7 +1096,7 @@ Bu proje eğitim amaçlıdır. MIT License.
 ## 👨‍💻 Geliştirici
 
 **Halit Kalaycı**  
-📧 Email: [halit.kalayci@example.com](mailto:halit.kalayci@example.com)  
+📧 Email: [halit.kalayci@kodlama.io](mailto:halit.kalayci@kodlama.io)  
 🔗 GitHub: [@halitkalayci](https://github.com/halitkalayci)
 
 ---
