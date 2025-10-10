@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: bff
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            client-id: smartorder-bff
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/keycloak"
+            scope: openid,profile,email,offline_access
+        provider:
+          keycloak:
+            issuer-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8585/realms/smartorder}
+
+server:
+  port: 8070
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${SO_EUREKA_URI:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    org.springframework.security: INFO
+    org.springframework.web.reactive.function.client: INFO
