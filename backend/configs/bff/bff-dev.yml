@@ -4,15 +4,20 @@ spring:
   security:
     oauth2:
       client:
-        registration:
-          keycloak:
-            client-id: smartorder-bff
-            authorization-grant-type: authorization_code
-            redirect-uri: "{baseUrl}/login/oauth2/code/keycloak"
-            scope: openid,profile,email,offline_access
         provider:
           keycloak:
-            issuer-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8585/realms/smartorder}
+            issuer-uri: http://localhost:8585/realms/smartorder-bff
+            user-name-attribute: preferred_username
+        registration:
+          keycloak:
+            client-id: bff-web
+            client-secret: 2RTvc4QRG2P7GJf7q0lnPchOqhx9Bq19
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            authorization-grant-type: authorization_code
+            scope:
+              - openid
+              - profile
+              - email
 
 server:
   port: 8070
