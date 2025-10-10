@@ -1,4 +1,4 @@
-package com.smartorder.order_service;
+package com.smartorder.orderservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

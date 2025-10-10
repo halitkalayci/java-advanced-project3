@@ -16,6 +16,7 @@
         <module>config-server</module>
         <module>discovery-server</module>
         <module>catalog-service</module>
+        <module>order-service</module>
     </modules>
 
     <properties>
