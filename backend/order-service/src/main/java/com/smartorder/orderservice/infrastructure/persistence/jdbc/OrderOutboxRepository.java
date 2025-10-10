@@ -15,6 +15,6 @@ public interface OrderOutboxRepository extends CrudRepository<OrderOutboxEntity,
 
     @Modifying
     @Query("UPDATE outbox_events SET published_at = :publishedAt WHERE id = :id")
-    void markPublished(UUID id, Instant publishedAt);
+    void markPublished(@Param("id") UUID id, @Param("publishedAt") Instant publishedAt);
 }
 

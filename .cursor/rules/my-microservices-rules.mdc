@@ -1,0 +1,6 @@
+---
+alwaysApply: true
+---
+## Kurallar
+- Tüm servislerde `DDD` yaklaşımı kullan.
+- Tüm identity işlemleri için `docker-compose.yml`'da ayağa kaldırılan `keycloak` kullanılacak.

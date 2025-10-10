@@ -1,0 +1,220 @@
+---
+alwaysApply: true
+---
+
+# =========================
+# SmartOrder – Cursor Repo Rules
+# (H2 + Keycloak + BFF + Kafka via Docker Compose + Config Server + Eureka Discovery + Catalog)
+# =========================
+project:
+  name: smartorder
+  language: java
+  framework: spring-boot
+  java_version: 21
+  spring_boot_version: "3.3+"
+  packaging: maven-multi-module
+
+modules:
+  - name: common
+  - name: config-server
+  - name: discovery-server
+  - name: bff
+  - name: gateway
+  - name: catalog-service
+  - name: order-service
+  - name: payment-service
+  - name: notification-service
+
+repo_layout:
+  root_dirs:
+    - backend
+    - frontend/angular
+    - configs
+    - k8s
+  backend_modules_root: backend
+  config_server_config_root: configs
+
+scaffold_policy:
+  place_modules_under_backend: true
+  modules_target_paths:
+    common: backend/common
+    config-server: backend/config-server
+    discovery-server: backend/discovery-server
+    bff: backend/bff
+    gateway: backend/gateway
+    catalog-service: backend/catalog-service
+    order-service: backend/order-service
+    payment-service: backend/payment-service
+    notification-service: backend/notification-service
+  config_files_target_path: configs
+  frontend_target_path: frontend/angular
+
+guards:
+  - "Eğer klasör yoksa Cursor önce klasörü oluştursun (mkdir -p)."
+  - "Servis application.yml içine yalnızca configserver import yaz; servis konfigleri configs/ altına yaz."
+  - "Kafka docker-compose ile çalışacak; harici/embedded runner üretme."
+
+architecture:
+  style: ddd-hexagonal
+  layers: [domain, application, api, infrastructure]
+  rules:
+    - "domain: pure Java; hiçbir Spring annotation veya dış bağımlılık yok."
+    - "application sadece domain portlarını bilir; infra detayı bilinmez."
+    - "api yalnızca application servislerini çağırır; domain nesnelerini doğrudan dışarı sızdırma."
+    - "infra domain portlarını adapter’larla uygular, @Configuration ile wire eder."
+  cqrs:
+    - "application/command ve application/query paket ayrımı."
+  events:
+    - "Domain event → application publish → infra outbox/stream ile Kafka’ya."
+    - "Topics: order.created, payment.succeeded, payment.failed (+ .DLT)."
+
+tech_stack:
+  persistence:
+    - spring-data-jdbc
+    - h2 (file mode per service)
+    - schema.sql kullan; Flyway yok.
+  messaging:
+    - spring-cloud-stream (Kafka binder)
+    broker: "docker-compose Kafka → localhost:9092"
+  config:
+    - spring-cloud-config (server + clients)
+    - clients: "spring.config.import=configserver:${SO_CONFIG_URI:http://localhost:8888}"
+  discovery:
+    - spring-cloud-netflix-eureka (server + clients)
+  security:
+    - keycloak (OIDC)
+    - resource-server (JWT) on services
+    - BFF (Auth Code + PKCE, HttpOnly cookie, token relay)
+  observability:
+    - spring-boot-actuator
+  resilience:
+    - retry/backoff, idempotency tablosu, DLQ
+  mapping: [ mapstruct ]
+  lombok: true
+
+conventions:
+  packages:
+    base: "com.smartorder"
+    per_service: "com.smartorder.<service>"
+  naming:
+    - "Aggregate tekil: Order, PaymentRequest, Product."
+    - "VO’lar record: Money, ProductId, OrderId."
+    - "Port arayüzleri: <Thing>Repository, DomainEventPublisher."
+    - "Adapter adı: <Tech><Thing>Adapter (JdbcOrderRepositoryAdapter)."
+  endpoints:
+    - "catalog-service: /products (GET, GET /{id}, POST, PUT /{id})"
+    - "order-service: /orders (POST, GET /{id})"
+  http_ports:
+    config-server: 8888
+    discovery-server: 8761
+    bff: 8070
+    gateway: 8080
+    catalog-service: 8084
+    order-service: 8081
+    payment-service: 8082
+    notification-service: 8083
+  topics: [order.created, payment.succeeded, payment.failed, product.price.changed, "*.DLT"]
+  env:
+    prefix: "SO_"
+    config_uri: "${SO_CONFIG_URI:http://localhost:8888}"
+    eureka_uri: "${SO_EUREKA_URI:http://localhost:8761/eureka}"
+    keycloak_issuer: "${SO_KEYCLOAK_ISSUER:http://localhost:8088/realms/smartorder}"
+    kafka_brokers: "${SO_KAFKA_BROKERS:localhost:9092}"
+    h2_dir: "${SO_DB_DIR:./data}"
+
+databases:
+  h2:
+    jdbc_tpl: "jdbc:h2:file:{PATH};DB_CLOSE_ON_EXIT=FALSE;AUTO_SERVER=TRUE"
+    per_service_paths:
+      - catalog-service:     "${SO_DB_DIR:./data}/catalog"
+      - order-service:       "${SO_DB_DIR:./data}/order"
+      - payment-service:     "${SO_DB_DIR:./data}/payment"
+      - notification-service:"${SO_DB_DIR:./data}/notification"
+    username: "sa"
+    password: ""
+    console: { enabled: true, path: "/h2-console" }
+    init_scripts:
+      outbox_schema_h2: |
+        CREATE TABLE IF NOT EXISTS outbox_events(
+          id UUID PRIMARY KEY,
+          aggregate_type VARCHAR(64) NOT NULL,
+          aggregate_id UUID NOT NULL,
+          type VARCHAR(128) NOT NULL,
+          payload CLOB NOT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          published_at TIMESTAMP
+        );
+      idempotency_schema_h2: |
+        CREATE TABLE IF NOT EXISTS payment_requests(
+          order_id UUID PRIMARY KEY,
+          status VARCHAR(20) NOT NULL,
+          last_attempt_at TIMESTAMP
+        );
+
+config_server:
+  backend:
+    - "dosya sistemi (dev): repo kökünde /configs/**"
+    - "(opsiyonel) git backend (prod)"
+  clients:
+    - "Her servis application.yml içinde: spring.config.import=configserver:${SO_CONFIG_URI}"
+
+discovery_eureka:
+  server:
+    port: 8761
+  clients:
+    register: true
+    fetchRegistry: true
+    defaultZone: "${SO_EUREKA_URI}"
+  gateway_routes_lb:
+    - "Gateway route’ları URI=lb://catalog-service, lb://order-service, lb://payment-service, lb://notification-service"
+
+security_keycloak:
+  bff_flow:
+    - "Authorization Code + PKCE; HttpOnly cookie; token relay"
+  resource_servers:
+    - "catalog/order/payment/notification: oauth2 resourceserver (jwt) issuer-uri=${SO_KEYCLOAK_ISSUER}"
+
+quality:
+  style: google-java-format
+  coverage_goal: "kritik use-case & adapters %70+"
+
+outbox:
+  table: outbox_events
+  relay:
+    - "@Scheduled ile unpublished satırları publish et"
+    - "publish failure → retry (idempotent)"
+
+idempotency:
+  payment:
+    table: payment_requests
+    unique: order_id
+    rule: "aynı order_id birden fazla işlenmesin"
+
+docker_k8s_policy:
+  docker: "yalnızca docker-compose ile Kafka (KRaft)."
+  kubernetes: "hiçbir manifest/Helm üretme."
+
+code_generation:
+  do:
+    - "Her servis: H2 file JDBC + schema.sql"
+    - "Cloud Stream bindings (Kafka) ve Consumer/Supplier bean’leri"
+    - "Config Server: file backend"
+    - "Eureka: discovery-server; tüm servislerde eureka client"
+    - "Gateway: lb:// routes, X-Request-Id filtresi"
+    - "BFF: OIDC login/logout/callback, token relay proxy (/api/**)"
+    - "Order → Catalog entegrasyonu: WebClient (LoadBalancer) ile /products/{id} çağrısı; fiyat snapshot’ı order’a kopyala"
+  dont:
+    - "Flyway migration dosyası oluşturma."
+    - "Dockerfile/K8s manifesti üretme."
+    - "domain’e JPA annotation koyma."
+    - "token’ları JS/localStorage’da tutma."
+
+tasks_templates:
+  implement_catalog_service: |
+    Build CRUD for Product (id, name, unitCents, currency, active, createdAt, updatedAt).
+    Endpoints: GET /products, GET /products/{id}, POST /products, PUT /products/{id}.
+    H2 + JDBC + schema.sql kullan.
+    OAuth2 Resource Server + Eureka client.
+  implement_order_catalog_integration: |
+    Order create flow: Catalog (/products/{id}) çağır; fiyatları snapshot olarak order’a kopyala.
+    Eğer Catalog kapalıysa request’ten fiyat al (fallback).
