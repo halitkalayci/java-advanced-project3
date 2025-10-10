@@ -1,1 +1,4 @@
-export const environment = {\n  production: false,\n  apiBase: 'http://localhost:8070'\n};\n
+export const environment = {
+  production: false,
+  apiBase: 'http://localhost:8070'
+};

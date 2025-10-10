@@ -18,6 +18,6 @@ import { environment } from '../../environments/environment';
 })
 export class LoginComponent {
   login() {
-    window.location.href = `${environment.apiBase}/auth/me`;
+    window.location.href = `${environment.apiBase}/oauth2/authorization/keycloak`;
   }
 }

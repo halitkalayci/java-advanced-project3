@@ -8,7 +8,8 @@ export const ApiInterceptor: HttpInterceptorFn = (req, next) => {
   const router = inject(Router);
 
   let url = req.url;
-  if (url.startsWith('/')) {
+  // Only add /api prefix for relative URLs, skip if already has full URL or starts with /auth
+  if (url.startsWith('/') && !url.startsWith('/auth') && !url.startsWith('http')) {
     url = `${environment.apiBase}/api${url}`;
   }
 

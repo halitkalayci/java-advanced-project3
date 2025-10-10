@@ -8,7 +8,7 @@ export const AuthGuard: CanActivateFn = () => {
   const http = inject(HttpClient);
   const router = inject(Router);
 
-  return http.get(`${environment.apiBase}/api/me`, { withCredentials: true }).pipe(
+  return http.get(`${environment.apiBase}/auth/me`, { withCredentials: true }).pipe(
     map(() => true),
     catchError(() => {
       router.navigateByUrl('/login');
