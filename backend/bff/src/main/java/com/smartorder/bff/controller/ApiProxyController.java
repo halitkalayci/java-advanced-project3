@@ -25,41 +25,24 @@ public class ApiProxyController {
         this.webClient = webClient;
     }
 
-    @RequestMapping(value = "/**", method = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, 
-                                              RequestMethod.DELETE, RequestMethod.PATCH, RequestMethod.OPTIONS})
-    public Mono<ResponseEntity<byte[]>> proxy(ServerWebExchange exchange,
-                                              @RequestBody(required = false) Mono<byte[]> body) {
-        var req = exchange.getRequest();
-        HttpMethod method = req.getMethod();
 
-        // Original path: /api/xxx -> forward to /api/xxx at GATEWAY (preserve /api prefix and query params)
-        String fullPath = req.getPath().pathWithinApplication().value();
-        String queryString = req.getURI().getRawQuery();
-        String pathWithQuery = queryString != null ? fullPath + "?" + queryString : fullPath;
-        
-        var uriBuilder = URI.create(pathWithQuery);
+    @RequestMapping("/**")
+    public Mono<ResponseEntity<byte[]>> relay(ServerWebExchange exchange,
+                                              @RequestBody(required=false) Mono<byte[]> body) {
+        URI fullPath = exchange.getRequest().getURI();
+        String downstreamPath = exchange.getRequest().getURI().getPath();
+        String query = exchange.getRequest().getURI().getRawQuery();
 
-        var headers = req.getHeaders();
+        String pathWithQuery = query != null ? downstreamPath + "?" + query : downstreamPath;
+        var headers = exchange.getRequest().getHeaders();
 
-        WebClient.RequestBodySpec spec = webClient
-                .method(method)
-                .uri(uriBuilder)
-                .headers(h -> h.addAll(headers))
-                .accept(MediaType.ALL);
+        String fullRequestPath = "http://gateway/" + pathWithQuery;
 
-        if (method == HttpMethod.GET || method == HttpMethod.DELETE || method == HttpMethod.OPTIONS) {
-            var x = spec
-                    .retrieve()
-                    .toEntity(byte[].class);
-            return x;
-        } else {
-            return body
-                    .defaultIfEmpty(new byte[0])
-                    .flatMap(bytes -> spec
-                            .body(BodyInserters.fromValue(bytes))
-                            .retrieve()
-                            .toEntity(byte[].class));
-        }
+        return webClient
+                .method(exchange.getRequest().getMethod())
+                .uri(fullRequestPath)
+                .body(body != null ? BodyInserters.fromPublisher(body, byte[].class) : BodyInserters.empty())
+                .exchangeToMono(clientResponse -> clientResponse.toEntity(byte[].class));
     }
 }
 

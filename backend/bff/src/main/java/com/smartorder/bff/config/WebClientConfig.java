@@ -27,17 +27,15 @@ public class WebClientConfig {
 
     @Bean
     WebClient webClient(
-            @Qualifier("loadBalancedWebClientBuilder") WebClient.Builder builder,
-            ReactiveClientRegistrationRepository clients,
-            ServerOAuth2AuthorizedClientRepository authorizedClients) {
-
+         @Qualifier("loadBalancedWebClientBuilder") WebClient.Builder builder,
+         ReactiveClientRegistrationRepository clients,
+         ServerOAuth2AuthorizedClientRepository authorizedClients
+    ) {
         var oauth = new ServerOAuth2AuthorizedClientExchangeFilterFunction(clients, authorizedClients);
-        oauth.setDefaultClientRegistrationId("keycloak"); // Use 'keycloak' registration from config
+        oauth.setDefaultClientRegistrationId("keycloak");
+        oauth.setDefaultOAuth2AuthorizedClient(true);
 
-        return builder
-                .baseUrl("lb://gateway")
-                .filter(oauth)
-                .build();
+        return builder.filter(oauth).build();
     }
 }
 

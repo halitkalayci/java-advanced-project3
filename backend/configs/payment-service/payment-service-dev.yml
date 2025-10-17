@@ -2,7 +2,7 @@ spring:
   application:
     name: payment-service
   kafka:
-    bootstrap-servers: ${SO_KAFKA_BROKERS:localhost:29092}
+    bootstrap-servers: ${SO_KAFKA_BROKERS:localhost:9094}
   h2:
     console:
       enabled: true
