@@ -2,50 +2,32 @@ package com.smartorder.notificationservice.application.service;
 
 import java.time.Instant;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+/**
+ * Simulated email delivery. Emits structured, single-line, parser-friendly logs
+ * (no emoji / multi-line art that log aggregators can't index) and does not
+ * block the caller — a real implementation would hand off to an async mail
+ * gateway here.
+ */
 @Service
 public class EmailNotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailNotificationService.class);
-    private static final int MIN_DELAY_MS = 100;
-    private static final int MAX_DELAY_MS = 500;
 
     public void sendPaymentSuccessEmail(UUID orderId, Instant paidAt) {
-        simulateEmailDelay();
-        
-        log.info("📧 EMAIL SENT: Payment Success Notification");
-        log.info("   ├─ Order ID: {}", orderId);
-        log.info("   ├─ Paid At: {}", paidAt);
-        log.info("   ├─ To: customer-{}@example.com", orderId.toString().substring(0, 8));
-        log.info("   ├─ Subject: Your payment was successful!");
-        log.info("   └─ Status: ✅ DELIVERED");
+        log.info("email_sent type=payment_success orderId={} paidAt={} to=customer-{}@example.com",
+                orderId, paidAt, recipientId(orderId));
     }
 
     public void sendPaymentFailureEmail(UUID orderId, String reason, Instant failedAt) {
-        simulateEmailDelay();
-        
-        log.warn("📧 EMAIL SENT: Payment Failure Notification");
-        log.warn("   ├─ Order ID: {}", orderId);
-        log.warn("   ├─ Failed At: {}", failedAt);
-        log.warn("   ├─ Reason: {}", reason);
-        log.warn("   ├─ To: customer-{}@example.com", orderId.toString().substring(0, 8));
-        log.warn("   ├─ Subject: Payment failed - Action required");
-        log.warn("   └─ Status: ⚠️  DELIVERED");
+        log.warn("email_sent type=payment_failure orderId={} failedAt={} reason=\"{}\" to=customer-{}@example.com",
+                orderId, failedAt, reason, recipientId(orderId));
     }
 
-    private void simulateEmailDelay() {
-        try {
-            int delayMs = ThreadLocalRandom.current().nextInt(MIN_DELAY_MS, MAX_DELAY_MS);
-            Thread.sleep(delayMs);
-            log.debug("Email sending simulated with {}ms delay", delayMs);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.error("Email simulation interrupted", e);
-        }
+    private static String recipientId(UUID orderId) {
+        return orderId.toString().substring(0, 8);
     }
 }
-

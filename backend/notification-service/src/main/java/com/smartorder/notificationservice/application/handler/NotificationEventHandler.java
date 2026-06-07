@@ -7,6 +7,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+/**
+ * Reacts to payment events by sending notifications. Email delivery is treated
+ * as best-effort: a delivery failure is logged but NOT re-thrown, so the Kafka
+ * message is still acknowledged. Re-throwing here previously caused the message
+ * to be retried up to {@code maxAttempts} times, sending the customer duplicate
+ * emails on a transient mail-gateway hiccup. Upstream payment idempotency
+ * already guarantees a single terminal event per order.
+ */
 @Component
 public class NotificationEventHandler {
 
@@ -22,8 +30,8 @@ public class NotificationEventHandler {
         try {
             emailService.sendPaymentSuccessEmail(event.orderId(), event.paidAt());
         } catch (Exception e) {
-            log.error("Failed to send payment success email for order: {}", event.orderId(), e);
-            throw e;
+            log.error("Failed to send payment success email for order: {} (giving up, not retrying)",
+                    event.orderId(), e);
         }
     }
 
@@ -32,9 +40,8 @@ public class NotificationEventHandler {
         try {
             emailService.sendPaymentFailureEmail(event.orderId(), event.reason(), event.failedAt());
         } catch (Exception e) {
-            log.error("Failed to send payment failure email for order: {}", event.orderId(), e);
-            throw e;
+            log.error("Failed to send payment failure email for order: {} (giving up, not retrying)",
+                    event.orderId(), e);
         }
     }
 }
-

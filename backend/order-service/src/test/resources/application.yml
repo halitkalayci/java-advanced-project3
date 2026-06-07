@@ -1,0 +1,22 @@
+# Test-only config: slice tests must not reach out to Config Server / Eureka.
+spring:
+  config:
+    import: "optional:configserver:"
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+  datasource:
+    # Same H2 dialect/identifier casing as dev so Spring Data JDBC's quoted
+    # lowercase identifiers match the Flyway-created tables.
+    url: "jdbc:h2:mem:ordertest;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1"
+    username: sa
+    password: ""
+  flyway:
+    enabled: true
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
