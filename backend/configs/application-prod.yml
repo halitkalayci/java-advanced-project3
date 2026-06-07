@@ -1,0 +1,8 @@
+# Production cross-cutting overrides for every application.
+# Emit logs as structured JSON (Elastic Common Schema) for log aggregation.
+logging:
+  structured:
+    format:
+      console: ecs
+  level:
+    root: INFO

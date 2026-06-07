@@ -1,0 +1,23 @@
+# Single entry point: the frontend (nginx) serves the SPA and proxies
+# /api, /auth, /oauth2, /login, /logout to the BFF inside the cluster.
+# Add "127.0.0.1 smartorder.local" to your hosts file when testing locally.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: smartorder-ingress
+  namespace: smartorder
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: smartorder.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 8080

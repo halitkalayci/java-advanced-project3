@@ -1,87 +1,248 @@
-version: "3.9"
+name: smartorder
+
+# Shared environment for every Spring service (YAML anchor → reused below).
+x-service-env: &service-env
+  SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+  SO_CONFIG_URI: http://config-server:8888
+  SO_CONFIG_USER: ${SO_CONFIG_USER:-configuser}
+  SO_CONFIG_PASSWORD: ${SO_CONFIG_PASSWORD:-configpass}
+  SO_EUREKA_URI: http://${SO_EUREKA_USER:-eurekauser}:${SO_EUREKA_PASSWORD:-eurekapass}@discovery-server:8761/eureka
+  SO_EUREKA_USER: ${SO_EUREKA_USER:-eurekauser}
+  SO_EUREKA_PASSWORD: ${SO_EUREKA_PASSWORD:-eurekapass}
+  SO_KAFKA_BROKERS: kafka:9092
+  SO_KEYCLOAK_ISSUER: http://keycloak:8585/realms/smartorder-bff
+  SO_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+
+x-build: &java-build
+  context: ./backend
+  dockerfile: Dockerfile
 
 services:
+  # ---------------- Infrastructure ----------------
   keycloak_db:
     image: postgres:15
     environment:
       POSTGRES_DB: keycloak
-      POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: keycloak
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
     volumes:
       - kc_pg_data:/var/lib/postgresql/data
+    networks: [smartorder]
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U keycloak -d keycloak" ]
+      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USER:-keycloak} -d keycloak"]
       interval: 5s
       timeout: 3s
       retries: 10
+
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.5
     depends_on:
       keycloak_db:
         condition: service_healthy
-    command:
-      - start-dev
-      - --http-port=8585
+    command: ["start-dev", "--http-port=8585"]
     ports:
       - "8585:8585"
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak_db:5432/keycloak
-      KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: keycloak
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
+    networks: [smartorder]
+
   kafka:
     image: apache/kafka:3.8.0
     restart: unless-stopped
     ports:
-      - "9092:9092"   # container içi (PLAINTEXT) - diğer container'lar için
-      - "9094:9094"   # host'tan erişim (EXTERNAL)
+      - "9092:9092"
+      - "9094:9094"
     environment:
       KAFKA_PROCESS_ROLES: "broker,controller"
       KAFKA_NODE_ID: "1"
       KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-
       KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094"
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT"
       KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
-
       KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094"
-
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
       KAFKA_NUM_PARTITIONS: "3"
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
-
       CLUSTER_ID: "5L6g3nShT-eMCtK--X86sw"
       KAFKA_CLUSTER_ID: "5L6g3nShT-eMCtK--X86sw"
-
       KAFKA_LOG_DIRS: "/var/lib/kafka/data"
-
     volumes:
       - kafka-data:/var/lib/kafka/data
-    networks:
-      - kafkanet
+    networks: [smartorder]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   kafka-ui:
     image: provectuslabs/kafka-ui:v0.7.2
     restart: unless-stopped
-    depends_on:
-      - kafka
+    depends_on: [kafka]
     ports:
       - "8079:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: "local"
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:9092"
-    networks:
-      - kafkanet
+    networks: [smartorder]
+
+  zipkin:
+    image: openzipkin/zipkin:3
+    restart: unless-stopped
+    ports:
+      - "9411:9411"
+    networks: [smartorder]
+
+  # ---------------- Platform services ----------------
+  config-server:
+    build:
+      <<: *java-build
+      args:
+        MODULE: config-server
+    environment:
+      SPRING_PROFILES_ACTIVE: git
+      SO_CONFIG_GIT_URI: ${SO_CONFIG_GIT_URI:-https://github.com/halitkalayci/java-advanced-project3.git}
+      SO_CONFIG_GIT_BRANCH: ${SO_CONFIG_GIT_BRANCH:-main}
+      SO_CONFIG_USER: ${SO_CONFIG_USER:-configuser}
+      SO_CONFIG_PASSWORD: ${SO_CONFIG_PASSWORD:-configpass}
+      SO_EUREKA_URI: http://${SO_EUREKA_USER:-eurekauser}:${SO_EUREKA_PASSWORD:-eurekapass}@discovery-server:8761/eureka
+      SO_EUREKA_USER: ${SO_EUREKA_USER:-eurekauser}
+      SO_EUREKA_PASSWORD: ${SO_EUREKA_PASSWORD:-eurekapass}
+    networks: [smartorder]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  discovery-server:
+    build:
+      <<: *java-build
+      args:
+        MODULE: discovery-server
+    depends_on:
+      config-server:
+        condition: service_healthy
+    environment:
+      <<: *service-env
+    networks: [smartorder]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+
+  catalog-service:
+    build:
+      <<: *java-build
+      args:
+        MODULE: catalog-service
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *service-env
+    networks: [smartorder]
+
+  order-service:
+    build:
+      <<: *java-build
+      args:
+        MODULE: order-service
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *service-env
+    networks: [smartorder]
+
+  payment-service:
+    build:
+      <<: *java-build
+      args:
+        MODULE: payment-service
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *service-env
+    networks: [smartorder]
+
+  notification-service:
+    build:
+      <<: *java-build
+      args:
+        MODULE: notification-service
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *service-env
+    networks: [smartorder]
+
+  gateway:
+    build:
+      <<: *java-build
+      args:
+        MODULE: gateway
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+    environment:
+      <<: *service-env
+    ports:
+      - "8080:8080"
+    networks: [smartorder]
+
+  bff:
+    build:
+      <<: *java-build
+      args:
+        MODULE: bff
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+    environment:
+      <<: *service-env
+      KEYCLOAK_BFF_SECRET: ${KEYCLOAK_BFF_SECRET:?set KEYCLOAK_BFF_SECRET in .env}
+      BFF_FRONTEND_URL: ${BFF_FRONTEND_URL:-http://localhost:4200}
+    ports:
+      - "8070:8070"
+    networks: [smartorder]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on: [bff]
+    ports:
+      - "4200:8080"
+    networks: [smartorder]
 
 volumes:
   kafka-data: {}
   kc_pg_data: {}
 
 networks:
-  kafkanet:
+  smartorder:
+    driver: bridge

@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bff
+  namespace: smartorder
+  labels:
+    app: bff
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bff
+  template:
+    metadata:
+      labels:
+        app: bff
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8070"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: bff
+          image: halitkalayci/smartorder-bff:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8070
+          env:
+            - name: BFF_FRONTEND_URL
+              value: "http://smartorder.local"
+          envFrom:
+            - configMapRef:
+                name: smartorder-config
+            - secretRef:
+                name: smartorder-secrets
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8070
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8070
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "384Mi"
+              cpu: "200m"
+            limits:
+              memory: "768Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bff
+  namespace: smartorder
+  labels:
+    app: bff
+spec:
+  selector:
+    app: bff
+  ports:
+    - port: 8070
+      targetPort: 8070
