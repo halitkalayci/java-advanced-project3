@@ -1,3 +1,6 @@
+-- Catalog service baseline schema.
+-- Portable across H2 (MODE=PostgreSQL) and PostgreSQL.
+
 CREATE TABLE IF NOT EXISTS products (
     id UUID PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
@@ -7,4 +10,3 @@ CREATE TABLE IF NOT EXISTS products (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP
 );
-

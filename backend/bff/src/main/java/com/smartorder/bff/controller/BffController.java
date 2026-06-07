@@ -14,7 +14,7 @@ import reactor.core.publisher.Mono;
  * BFF Controller for user information and debugging.
  * <p>
  * GET /auth/me - Returns OIDC user claims
- * GET /public/services - Returns list of discovered services (DEBUG)
+ * GET /auth/services - Returns list of discovered services (DEBUG, authenticated)
  */
 @RestController
 public class BffController {
@@ -35,7 +35,7 @@ public class BffController {
         ));
     }
 
-    @GetMapping("/public/services")
+    @GetMapping("/auth/services")
     public Mono<Map<String, Object>> services() {
         List<String> serviceNames = discoveryClient.getServices();
         Map<String, List<ServiceInstance>> instances = serviceNames.stream()

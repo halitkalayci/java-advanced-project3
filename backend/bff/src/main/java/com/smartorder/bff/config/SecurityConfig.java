@@ -30,18 +30,24 @@ import java.util.List;
 @EnableWebFluxSecurity
 public class SecurityConfig {
 
-    private static final String FRONTEND_URL = "http://localhost:4200";
+    private final String frontendUrl;
+
+    public SecurityConfig(
+            @org.springframework.beans.factory.annotation.Value("${bff.frontend-url:http://localhost:4200}")
+            String frontendUrl) {
+        this.frontendUrl = frontendUrl;
+    }
 
     @Bean
     SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         // Login success handler - redirect to frontend
-        var loginSuccessHandler = new RedirectServerAuthenticationSuccessHandler(FRONTEND_URL);
+        var loginSuccessHandler = new RedirectServerAuthenticationSuccessHandler(frontendUrl);
 
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeExchange(ex -> ex
-                        .pathMatchers("/", "/public/**", "/actuator/**").permitAll()
+                        .pathMatchers("/", "/actuator/health/**", "/actuator/info").permitAll()
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyExchange().authenticated()
                 )
@@ -59,14 +65,14 @@ public class SecurityConfig {
     @Bean
     public ServerLogoutSuccessHandler logoutSuccessHandler() {
         RedirectServerLogoutSuccessHandler handler = new RedirectServerLogoutSuccessHandler();
-        handler.setLogoutSuccessUrl(URI.create(FRONTEND_URL + "/login"));
+        handler.setLogoutSuccessUrl(URI.create(frontendUrl + "/login"));
         return handler;
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(FRONTEND_URL));
+        config.setAllowedOrigins(List.of(frontendUrl));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

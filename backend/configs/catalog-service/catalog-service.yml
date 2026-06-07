@@ -1,0 +1,35 @@
+# Common configuration for catalog-service (all profiles).
+# Environment-specific datasource settings live in catalog-service-dev.yml / catalog-service-prod.yml.
+spring:
+  application:
+    name: catalog-service
+  cloud:
+    loadbalancer:
+      ribbon:
+        enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Must match the realm the BFF issues tokens from.
+          issuer-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8585/realms/smartorder-bff}
+
+server:
+  port: 8084
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${SO_EUREKA_URI:http://${SO_EUREKA_USER:eurekauser}:${SO_EUREKA_PASSWORD:eurekapass}@localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    org.springframework.jdbc.core: INFO

@@ -25,10 +25,10 @@ public class TokenRelayConfig {
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
         http
                 .authorizeExchange(exchanges -> exchanges
-                        // Allow actuator endpoints without authentication
-                        .pathMatchers("/actuator/**").permitAll()
-                        // All other requests require authentication
-                        .anyExchange().permitAll()
+                        // Allow health/info probes without authentication
+                        .pathMatchers("/actuator/health/**", "/actuator/info").permitAll()
+                        // All other requests require a valid JWT
+                        .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         // Enable JWT-based authentication

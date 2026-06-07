@@ -1,0 +1,15 @@
+# Prod profile: PostgreSQL with HikariCP. Schema managed by Flyway.
+spring:
+  datasource:
+    url: ${SO_DB_URL:jdbc:postgresql://localhost:5432/orders}
+    username: ${SO_DB_USERNAME:orders}
+    password: ${SO_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 10000
+  h2:
+    console:
+      enabled: false
+  flyway:
+    enabled: true

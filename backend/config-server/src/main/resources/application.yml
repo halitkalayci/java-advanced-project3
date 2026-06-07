@@ -3,6 +3,10 @@ spring:
     name: config-server
   profiles:
     active: git
+  security:
+    user:
+      name: ${SO_CONFIG_USER:configuser}
+      password: ${SO_CONFIG_PASSWORD:configpass}
   cloud:
     config:
       server:
@@ -23,7 +27,7 @@ server:
 eureka:
   client:
     serviceUrl:
-      defaultZone: ${SO_EUREKA_URI:http://localhost:8761/eureka}
+      defaultZone: ${SO_EUREKA_URI:http://${SO_EUREKA_USER:eurekauser}:${SO_EUREKA_PASSWORD:eurekapass}@localhost:8761/eureka}
     register-with-eureka: true
     fetch-registry: true
   instance:

@@ -1,3 +1,9 @@
+spring:
+  security:
+    user:
+      name: ${SO_EUREKA_USER:eurekauser}
+      password: ${SO_EUREKA_PASSWORD:eurekapass}
+
 server:
   port: 8761
 

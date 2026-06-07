@@ -6,12 +6,13 @@ spring:
       client:
         provider:
           keycloak:
-            issuer-uri: http://localhost:8585/realms/smartorder-bff
+            issuer-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8585/realms/smartorder-bff}
             user-name-attribute: preferred_username
         registration:
           keycloak:
             client-id: bff-web
-            client-secret: 2RTvc4QRG2P7GJf7q0lnPchOqhx9Bq19
+            # Confidential client secret — supplied via environment, never committed.
+            client-secret: ${KEYCLOAK_BFF_SECRET}
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             authorization-grant-type: authorization_code
             scope:
@@ -22,10 +23,13 @@ spring:
 server:
   port: 8070
 
+bff:
+  frontend-url: ${BFF_FRONTEND_URL:http://localhost:4200}
+
 eureka:
   client:
     service-url:
-      defaultZone: ${SO_EUREKA_URI:http://localhost:8761/eureka}
+      defaultZone: ${SO_EUREKA_URI:http://${SO_EUREKA_USER:eurekauser}:${SO_EUREKA_PASSWORD:eurekapass}@localhost:8761/eureka}
   instance:
     prefer-ip-address: true
 
@@ -37,8 +41,4 @@ management:
 
 logging:
   level:
-    org.springframework.security: DEBUG
-    org.springframework.web.reactive.function.client: DEBUG
-    org.springframework.cloud.client.loadbalancer: DEBUG
-    com.smartorder.bff: DEBUG
-    reactor.netty: DEBUG
+    com.smartorder.bff: INFO

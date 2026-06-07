@@ -1,3 +1,6 @@
+-- Order service baseline schema.
+-- Portable across H2 (MODE=PostgreSQL) and PostgreSQL.
+
 CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY,
     status VARCHAR(20) NOT NULL,
@@ -24,8 +27,7 @@ CREATE TABLE IF NOT EXISTS outbox_events (
     aggregate_type VARCHAR(64) NOT NULL,
     aggregate_id UUID NOT NULL,
     type VARCHAR(128) NOT NULL,
-    payload CLOB NOT NULL,
+    payload TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL,
     published_at TIMESTAMP
 );
-

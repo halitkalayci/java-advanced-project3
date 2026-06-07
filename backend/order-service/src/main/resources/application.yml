@@ -1,6 +1,10 @@
 spring:
   config:
     import: "configserver:${SO_CONFIG_URI:http://localhost:8888}"
+  cloud:
+    config:
+      username: ${SO_CONFIG_USER:configuser}
+      password: ${SO_CONFIG_PASSWORD:configpass}
   application:
     name: order-service
   profiles:
