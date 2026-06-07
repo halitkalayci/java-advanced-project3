@@ -6,7 +6,14 @@ spring:
       client:
         provider:
           keycloak:
-            issuer-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8585/realms/smartorder-bff}
+            # Explicit endpoints (instead of issuer-uri) so the BFF does NOT perform
+            # eager OIDC discovery at startup. With issuer-uri the app fails to boot
+            # whenever Keycloak is unreachable; explicit endpoints defer the network
+            # call until an actual login/token exchange happens.
+            authorization-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8585/realms/smartorder-bff}/protocol/openid-connect/auth
+            token-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8585/realms/smartorder-bff}/protocol/openid-connect/token
+            jwk-set-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8585/realms/smartorder-bff}/protocol/openid-connect/certs
+            user-info-uri: ${SO_KEYCLOAK_ISSUER:http://localhost:8585/realms/smartorder-bff}/protocol/openid-connect/userinfo
             user-name-attribute: preferred_username
         registration:
           keycloak:
