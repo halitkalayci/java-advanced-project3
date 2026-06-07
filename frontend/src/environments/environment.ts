@@ -1,4 +1,5 @@
 export const environment = {
   production: true,
-  apiBase: "http://localhost:8070",
+  // Empty → same-origin relative URLs; nginx proxies /api & /auth to the BFF.
+  apiBase: "",
 };

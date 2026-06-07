@@ -9,6 +9,12 @@
 > **Eğitimsel Amaçlı Gelişmiş Java Mikroservis Projesi**  
 > Domain-Driven Design (DDD), Hexagonal Architecture, CQRS, Event-Driven Architecture ve Cloud-Native prensiplerinin uygulandığı kapsamlı bir öğrenme projesidir.
 
+> 🏢 **Enterprise Hardening (v2):** Proje, güvenlik (OAuth2 zorunluluğu, secret dışsallaştırma,
+> Config/Eureka auth), dayanıklılık (idempotency, Outbox+ShedLock, Resilience4j), test paketi,
+> observability (tracing/metrics/JSON log) ve tam Docker/K8s/CI-CD ile kurumsal seviyeye taşındı.
+> Tüm değişiklikler ve "neden"leri: **[`docs/ENTERPRISE-HARDENING.md`](docs/ENTERPRISE-HARDENING.md)**
+> ve **[ADR'ler](docs/adr)**. Çalıştırmadan önce `cp .env.example .env` yapıp `KEYCLOAK_BFF_SECRET`'ı doldurun.
+
 ---
 
 ## 📚 İçindekiler
@@ -239,15 +245,26 @@ git clone https://github.com/halitkalayci/java-advanced-project3.git
 cd java-advanced-project3
 ```
 
-### 2. External Services'i Başlatın (Docker Compose)
+### 2. Ortam Değişkenleri ve Servisleri Başlatın (Docker Compose)
+
+`docker-compose.yml` artık **tüm yığını** (8 servis + frontend + Zipkin + Keycloak + Kafka + Postgres)
+ayağa kaldırır.
 
 ```bash
-# Keycloak, Kafka, Kafka UI ve PostgreSQL başlatılır
-docker-compose up -d
+# 1) Ortam dosyasını hazırla (KEYCLOAK_BFF_SECRET ve diğer sırlar)
+cp .env.example .env   # değerleri düzenleyin
+
+# 2) Tüm yığını başlat
+docker compose up -d --build
 
 # Logları takip edin
-docker-compose logs -f
+docker compose logs -f
 ```
+
+> **Not (Keycloak issuer):** Tarayıcı ve container'ların aynı issuer host'unu kullanması için
+> hosts dosyanıza `127.0.0.1 keycloak` ekleyin.
+> Yalnızca altyapıyı (Keycloak/Kafka) çalıştırıp servisleri lokalde `mvn` ile koşmak isterseniz,
+> `docker compose up -d keycloak kafka kafka-ui zipkin` ile sadece o servisleri başlatabilirsiniz.
 
 **Bekleme süresi**: Keycloak'ın başlaması ~30 saniye, Kafka ~10 saniye sürebilir.
 
@@ -366,20 +383,20 @@ curl http://localhost:8070/actuator/health  # bff
 
 ### Ön Hazırlık: Docker Images Build
 
-Config Server ve Discovery Server için Docker image'ları build edilmiş olmalı:
+Artık **tek generic `backend/Dockerfile`** (build-arg `MODULE` ile) tüm servisleri build eder:
 
 ```bash
-# Config Server image build
-cd backend
-docker build -f Dockerfile.config-server -t halitkalayci/smartorder-config-server:latest .
+# Herhangi bir servis için (örnekler)
+docker build --build-arg MODULE=config-server   -f backend/Dockerfile -t halitkalayci/smartorder-config-server:latest   backend
+docker build --build-arg MODULE=discovery-server -f backend/Dockerfile -t halitkalayci/smartorder-discovery-server:latest backend
+docker build --build-arg MODULE=order-service    -f backend/Dockerfile -t halitkalayci/smartorder-order-service:latest    backend
 
-# Discovery Server image build
-docker build -f Dockerfile.discovery-server -t halitkalayci/smartorder-discovery-server:latest .
-
-# (Opsiyonel) DockerHub'a push
-docker push halitkalayci/smartorder-config-server:latest
-docker push halitkalayci/smartorder-discovery-server:latest
+# Frontend
+docker build -t halitkalayci/smartorder-frontend:latest frontend
 ```
+
+> CI'da bu imajlar GitHub Actions (`.github/workflows/publish-images.yml`) ile otomatik
+> build edilip GHCR'a push edilir. K8s manifestleri `k8s/` altında tüm servisler için hazırdır.
 
 ### Kubernetes Cluster Başlatma
 

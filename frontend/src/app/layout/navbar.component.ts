@@ -1,6 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { environment } from '../../environments/environment';
+import { CartService } from '../core/cart.service';
+import { AuthService } from '../core/auth.service';
 
 @Component({
   standalone: true,
@@ -22,11 +24,17 @@ import { environment } from '../../environments/environment';
   `,
 })
 export class NavbarComponent {
+  private readonly cart = inject(CartService);
+  private readonly auth = inject(AuthService);
+
   login() {
     window.location.href = `${environment.apiBase}/oauth2/authorization/keycloak`;
   }
 
   logout() {
+    // Clear client-side state so the next user doesn't inherit this cart.
+    this.cart.clear();
+    this.auth.invalidate();
     window.location.href = `${environment.apiBase}/auth/logout`;
   }
 }
