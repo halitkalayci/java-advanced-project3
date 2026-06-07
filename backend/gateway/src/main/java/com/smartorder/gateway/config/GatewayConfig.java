@@ -8,15 +8,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 
 /**
- * Gateway route definitions using Java DSL.
+ * Gateway route definitions using the Java DSL.
  * <p>
- * Routes:
- * - /api/catalog/** → lb://catalog-service
- * - /api/orders/** → lb://order-service
- * - /api/payments/** → lb://payment-service
- * - /api/notifications/** → lb://notification-service
- * <p>
- * All routes use Eureka-based load balancing (lb://).
+ * Each business route is wrapped in a Resilience4j circuit breaker that, when
+ * the upstream is failing or slow, fails fast to {@code /fallback} (503) instead
+ * of piling up blocked requests. Retries handle transient blips below that.
  */
 @Slf4j
 @Configuration
@@ -25,49 +21,48 @@ public class GatewayConfig {
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
-                // Catalog Service
                 .route("catalog-service", r -> r
                         .path("/api/catalog/**")
                         .filters(f -> f
-                                .stripPrefix(2) // Remove /api/catalog
+                                .stripPrefix(2)
                                 .retry(config -> config.setRetries(3))
+                                .circuitBreaker(cb -> cb.setName("catalogCb").setFallbackUri("forward:/fallback"))
                         )
                         .uri("lb://catalog-service")
                 )
-                // Order Service
                 .route("order-service", r -> r
                         .path("/api/orders/**")
                         .filters(f -> f
-                                .stripPrefix(2) // Remove /api/orders
+                                .stripPrefix(2)
                                 .retry(config -> config.setRetries(3))
+                                .circuitBreaker(cb -> cb.setName("orderCb").setFallbackUri("forward:/fallback"))
                         )
                         .uri("lb://order-service")
                 )
-                // Payment Service
                 .route("payment-service", r -> r
                         .path("/api/payments/**")
                         .filters(f -> f
-                                .stripPrefix(2) // Remove /api/payments
+                                .stripPrefix(2)
                                 .retry(config -> config.setRetries(3))
+                                .circuitBreaker(cb -> cb.setName("paymentCb").setFallbackUri("forward:/fallback"))
                         )
                         .uri("lb://payment-service")
                 )
-                // Notification Service
                 .route("notification-service", r -> r
                         .path("/api/notifications/**")
                         .filters(f -> f
-                                .stripPrefix(2) // Remove /api/notifications
+                                .stripPrefix(2)
                                 .retry(config -> config.setRetries(3))
+                                .circuitBreaker(cb -> cb.setName("notificationCb").setFallbackUri("forward:/fallback"))
                         )
                         .uri("lb://notification-service")
                 )
                 // Default fallback - 404
                 .route("fallback", r -> r
-                        .path("/**")
+                        .path("/no-such-route/**")
                         .filters(f -> f.setStatus(HttpStatus.NOT_FOUND))
                         .uri("no://op")
                 )
                 .build();
     }
 }
-

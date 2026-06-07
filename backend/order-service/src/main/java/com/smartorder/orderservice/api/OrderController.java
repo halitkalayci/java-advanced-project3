@@ -4,6 +4,7 @@ import com.smartorder.orderservice.application.dto.OrderDto;
 import com.smartorder.orderservice.application.service.OrderCommandService;
 import com.smartorder.orderservice.application.service.OrderQueryService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
@@ -42,8 +43,8 @@ public class OrderController {
         return ResponseEntity.ok(queryService.get(id));
     }
 
-    public record CreateOrderRequest(@NotEmpty List<OrderItemRequest> items) {}
+    public record CreateOrderRequest(@NotEmpty @Valid List<OrderItemRequest> items) {}
 
-    public record OrderItemRequest(@NotNull UUID productId, int quantity) {}
+    public record OrderItemRequest(@NotNull UUID productId, @Min(1) int quantity) {}
 }
 

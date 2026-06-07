@@ -4,12 +4,10 @@ import com.smartorder.paymentservice.application.dto.OrderCreatedMessage;
 import com.smartorder.paymentservice.domain.event.PaymentFailed;
 import com.smartorder.paymentservice.domain.event.PaymentSucceeded;
 import com.smartorder.paymentservice.domain.model.OrderId;
-import com.smartorder.paymentservice.domain.model.PaymentRequest;
 import com.smartorder.paymentservice.domain.model.PaymentStatus;
 import com.smartorder.paymentservice.domain.port.PaymentEventPublisher;
 import com.smartorder.paymentservice.domain.port.PaymentRequestRepository;
 import java.time.Instant;
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,13 +32,14 @@ public class PaymentService {
         OrderId orderId = OrderId.of(message.orderId());
         Instant now = Instant.now();
 
-        Optional<PaymentRequest> existingRequest = paymentRequestRepository.findByOrderId(orderId);
-
-        if (existingRequest.isPresent() && existingRequest.get().isTerminal()) {
+        // Idempotency: only the writer that actually inserts the PENDING row may
+        // process the payment. Duplicate/concurrent deliveries return false and
+        // skip — this closes the previous check-then-act race where two messages
+        // could both pass the "not terminal" check and charge twice.
+        boolean claimed = paymentRequestRepository.claim(orderId, now);
+        if (!claimed) {
             return;
         }
-
-        paymentRequestRepository.upsert(orderId, PaymentStatus.PENDING, now);
 
         boolean paymentSuccess = ThreadLocalRandom.current().nextDouble() < SUCCESS_RATE;
 

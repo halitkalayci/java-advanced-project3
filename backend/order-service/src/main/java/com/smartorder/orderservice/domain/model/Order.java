@@ -15,14 +15,17 @@ public class Order {
     private final String currency;
     private OrderStatus status;
     private final Instant createdAt;
+    /** Optimistic-locking version; 0 for a freshly created order. */
+    private final long version;
 
-    private Order(UUID id, List<OrderLine> lines, long totalCents, String currency, OrderStatus status, Instant createdAt) {
+    private Order(UUID id, List<OrderLine> lines, long totalCents, String currency, OrderStatus status, Instant createdAt, long version) {
         this.id = Objects.requireNonNull(id, "id must not be null");
         this.lines = List.copyOf(lines);
         this.totalCents = totalCents;
         this.currency = Objects.requireNonNull(currency, "currency must not be null");
         this.status = Objects.requireNonNull(status, "status must not be null");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
+        this.version = version;
     }
 
     public static Order create(UUID id, List<OrderLine> lines, String currency, long totalCents, Instant createdAt) {
@@ -33,14 +36,14 @@ public class Order {
             throw new IllegalArgumentException("totalCents must be non-negative");
         }
         String normalizedCurrency = normalizeCurrency(currency);
-        return new Order(id, lines, totalCents, normalizedCurrency, OrderStatus.PENDING, createdAt);
+        return new Order(id, lines, totalCents, normalizedCurrency, OrderStatus.PENDING, createdAt, 0L);
     }
 
-    public static Order restore(UUID id, List<OrderLine> lines, long totalCents, String currency, OrderStatus status, Instant createdAt) {
+    public static Order restore(UUID id, List<OrderLine> lines, long totalCents, String currency, OrderStatus status, Instant createdAt, long version) {
         if (lines == null || lines.isEmpty()) {
             throw new IllegalArgumentException("order must have at least one line");
         }
-        return new Order(id, lines, totalCents, currency, status, createdAt);
+        return new Order(id, lines, totalCents, currency, status, createdAt, version);
     }
 
     public UUID getId() {
@@ -65,6 +68,10 @@ public class Order {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public long getVersion() {
+        return version;
     }
 
     public void markCompleted() {

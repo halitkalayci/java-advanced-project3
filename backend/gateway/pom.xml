@@ -22,6 +22,12 @@
             <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>
 
+        <!-- Reactive Resilience4j circuit breaker for gateway routes -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
+        </dependency>
+
         <!-- Spring Cloud Config Client -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>

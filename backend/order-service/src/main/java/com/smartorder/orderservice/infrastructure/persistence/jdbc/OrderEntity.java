@@ -30,6 +30,9 @@ class OrderEntity implements Persistable<UUID> {
     @Column("created_at")
     private Instant createdAt;
 
+    @Column("version")
+    private long version = 0;
+
     @MappedCollection(idColumn = "order_id", keyColumn = "id")
     private List<OrderLineEntity> lines = new ArrayList<>();
 
@@ -85,6 +88,14 @@ class OrderEntity implements Persistable<UUID> {
 
     void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    long getVersion() {
+        return version;
+    }
+
+    void setVersion(long version) {
+        this.version = version;
     }
 
     List<OrderLineEntity> getLines() {

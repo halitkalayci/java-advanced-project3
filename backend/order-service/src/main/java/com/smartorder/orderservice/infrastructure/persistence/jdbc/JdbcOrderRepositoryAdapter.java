@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -24,23 +25,23 @@ public class JdbcOrderRepositoryAdapter implements OrderRepository {
     @Override
     public Order save(Order order) {
         boolean existing = orderRepository.existsById(order.getId());
-        
+
         if (existing) {
-            // Update sadece order'ı kaydet, lines'ları boş bırak
-            OrderEntity entity = toEntityWithoutLines(order);
-            entity.markAsNotNew();
-            orderRepository.save(entity);
-            
-            // Lines'ları manuel yönet
-            lineRepository.deleteAll(lineRepository.findByOrderId(order.getId()));
-            List<OrderLineEntity> newLines = toLineEntities(order);
-            lineRepository.saveAll(newLines);
+            // Order lines are immutable after creation; an existing order only
+            // changes status. Update the header in place with optimistic locking
+            // instead of deleting and recreating lines (which regenerated IDs).
+            int updated = orderRepository.updateStatus(
+                    order.getId(), order.getStatus().name(), order.getVersion());
+            if (updated == 0) {
+                throw new OptimisticLockingFailureException(
+                        "Order " + order.getId() + " was modified concurrently (expected version "
+                                + order.getVersion() + ")");
+            }
         } else {
-            // Yeni order - aggregate olarak kaydet
             OrderEntity entity = toEntityWithLines(order);
             orderRepository.save(entity);
         }
-        
+
         return order;
     }
 
@@ -49,16 +50,6 @@ public class JdbcOrderRepositoryAdapter implements OrderRepository {
         return orderRepository
                 .findById(id)
                 .map(entity -> toDomain(entity, lineRepository.findByOrderId(id)));
-    }
-
-    private OrderEntity toEntityWithoutLines(Order order) {
-        return new OrderEntity(
-                order.getId(),
-                order.getStatus().name(),
-                order.getTotalCents(),
-                order.getCurrency(),
-                order.getCreatedAt(),
-                List.of());
     }
 
     private OrderEntity toEntityWithLines(Order order) {
@@ -89,7 +80,7 @@ public class JdbcOrderRepositoryAdapter implements OrderRepository {
     private Order toDomain(OrderEntity entity, List<OrderLineEntity> items) {
         entity.markAsNotNew();
         items.forEach(OrderLineEntity::markAsNotNew);
-        
+
         List<OrderLine> orderItems = items.stream()
                 .map(item -> new OrderLine(
                         item.getProductId(),
@@ -102,7 +93,13 @@ public class JdbcOrderRepositoryAdapter implements OrderRepository {
 
         OrderStatus status = OrderStatus.valueOf(entity.getStatus());
 
-        return Order.restore(entity.getId(), orderItems, entity.getTotalCents(), entity.getCurrency(), status, entity.getCreatedAt());
+        return Order.restore(
+                entity.getId(),
+                orderItems,
+                entity.getTotalCents(),
+                entity.getCurrency(),
+                status,
+                entity.getCreatedAt(),
+                entity.getVersion());
     }
 }
-
