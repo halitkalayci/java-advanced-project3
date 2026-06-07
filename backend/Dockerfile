@@ -27,7 +27,7 @@ WORKDIR /build/${MODULE}/target
 RUN sh -c 'java -Djarmode=layertools -jar *.jar extract'
 
 # ---------- Stage 2: runtime ----------
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM eclipse-temurin:25-jre-alpine AS runtime
 ARG MODULE
 LABEL maintainer="smartorder-team"
 LABEL module="${MODULE}"
